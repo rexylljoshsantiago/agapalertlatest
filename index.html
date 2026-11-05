@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>AGAP Alert</title>
+
+  <link rel="icon" href="assets/img/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/dashboard.css">
+  <link rel="stylesheet" href="assets/css/admin.css">
+  <link rel="stylesheet" href="assets/lib/leaflet.css"/>
+  <script src="assets/lib/leaflet.js"></script>
+  <!-- Apply saved theme before paint to prevent flash -->
+  <script>
+    (function(){
+      var t = localStorage.getItem('agapalert_theme');
+      if (t) document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+</head>
+<body>
+
+  <a class="skip" href="#pg">Skip to content</a>
+
+  <!-- ── SVG icon sprites (hidden) ────────────────────────────────────────── -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-nav"    viewBox="0 0 24 24"><path d="M3 11l18-8-8 18-2-8z"/></symbol>
+    <symbol id="i-chev"   viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+    <symbol id="i-x"      viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-plus"   viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-minus"  viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-loc"    viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></symbol>
+    <symbol id="i-phone"  viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></symbol>
+    <symbol id="i-home"   viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="i-list"   viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+    <symbol id="i-sun"    viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></symbol>
+    <symbol id="i-moon"   viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></symbol>
+  </svg>
+
+  <!-- ── Left sidebar ─────────────────────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar" aria-label="Navigation">
+    <nav class="sb-nav" id="tabs" aria-label="Main"></nav>
+    <div class="sb-footer">
+      <div class="user-chip-side" id="user-chip-side" style="display:none"></div>
+      <div class="sb-actions" id="sb-actions"></div>
+    </div>
+  </aside>
+
+  <!-- Sidebar toggle for mobile -->
+  <button class="sb-toggle" id="sb-toggle" aria-label="Open navigation" aria-expanded="false">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+      <line x1="3" y1="6" x2="21" y2="6"/>
+      <line x1="3" y1="12" x2="21" y2="12"/>
+      <line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+  </button>
+
+  <!-- Sidebar overlay (mobile) -->
+  <div class="sb-overlay" id="sb-overlay"></div>
+
+  <!-- ── Header ───────────────────────────────────────────────────────────── -->
+  <header class="hd">
+    <div class="hi">
+
+      <!-- Brand (always visible in header) -->
+      <div class="hd-brand">
+        <img src="assets/img/logo.png" alt="" class="hd-logo">
+        <span class="hd-title">AGAP Alert</span>
+      </div>
+
+      <div class="hr">
+        <!-- Publish advisory (officials only, injected by JS) -->
+        <span id="pub"></span>
+
+        <!-- SOS button -->
+        <button class="btn sos" data-a="sos" id="sosb"></button>
+
+        <!-- Light / dark toggle -->
+        <button class="theme-btn" id="theme-btn" type="button" aria-label="Toggle light/dark mode">
+          <svg class="i"><use href="#i-moon"/></svg>
+        </button>
+
+        <!-- Language switch -->
+        <div class="lang" id="lg" role="group" aria-label="Language">
+          <button data-v="en"  aria-pressed="false">EN</button>
+          <button data-v="fil" aria-pressed="true">FIL</button>
+        </div>
+
+        <!-- Header user menu -->
+        <div class="hd-user-menu" id="hd-user-menu">
+          <button class="hd-user-btn" id="hd-user-btn" aria-label="Account menu" aria-haspopup="true" aria-expanded="false">
+            <span class="hd-user-avatar" id="hd-user-avatar"></span>
+          </button>
+          <div class="hd-user-dropdown" id="hd-user-dropdown">
+            <div class="hd-user-info" id="hd-user-info"></div>
+            <a class="hd-user-item" href="profile.html">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              Profile
+            </a>
+            <button class="hd-user-item hd-user-danger" id="hd-signout-btn" type="button">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              Sign out
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ── Page body (sidebar + content) ───────────────────────────────────── -->
+  <div class="page-body">
+
+    <!-- Offline bar -->
+    <div id="netbar"></div>
+
+    <!-- Alert band — colored by flood level -->
+    <div class="band" id="band" data-l="0"></div>
+
+    <!-- Main content area -->
+    <main class="pg" id="pg" tabindex="-1"></main>
+
+  </div><!-- /.page-body -->
+
+  <!-- Mobile bottom nav -->
+  <nav id="bn" aria-label="Main"></nav>
+
+  <!-- Dialog -->
+  <div class="shade" id="shade">
+    <div class="dlg" id="dlg" role="dialog" aria-modal="true"></div>
+  </div>
+
+  <!--  Toast notification -->
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

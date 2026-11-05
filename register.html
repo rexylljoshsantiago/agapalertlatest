@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Create account | AgapAlert</title>
+  <link rel="icon" href="assets/img/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body class="auth-page">
+
+<main class="auth">
+  <section class="auth-brand">
+    <a class="brand" href="login.html">
+      <img src="assets/img/logo.png" alt="" width="36" height="36">AgapAlert
+    </a>
+    <div>
+      <h1>Join your barangay's <em>early warning</em> network.</h1>
+      <p>Residents get live alerts, evacuation routes and a one-tap SOS. Officials manage centers, relief stock and incoming reports.</p>
+    </div>
+
+    <figure class="gauge" aria-label="River gauge for Sinocalan River - Santa Barbara Bridge Gauge">
+      <div class="gauge-tube">
+        <div class="gauge-fill gauge-warn" style="height: 74%"></div>
+        <span class="gauge-line gauge-line-alert" style="bottom: 66%"></span>
+        <span class="gauge-line gauge-line-crit"  style="bottom: 87%"></span>
+      </div>
+      <div class="gauge-scale">
+        <span style="bottom: 87%">Critical 6.80 m</span>
+        <span style="bottom: 66%">Alert 5.20 m</span>
+        <span style="bottom: 0">0 m</span>
+      </div>
+      <figcaption>
+        <strong class="gauge-reading gauge-text-warn">5.82 m</strong>
+        <span>Above alert level, rising at 0.18 m/h</span>
+        <small>Sinocalan River - Santa Barbara Bridge Gauge</small>
+      </figcaption>
+    </figure>
+  </section>
+
+  <section class="auth-form">
+    <div class="auth-card">
+      <h2>Create account</h2>
+      <p class="sub">It takes about a minute.</p>
+
+      <form id="register-form" novalidate>
+
+        <div class="field">
+          <label for="full_name">Full name</label>
+          <input class="input" id="full_name" name="full_name" autocomplete="name" required>
+          <div id="err-full_name" class="error" role="alert"></div>
+        </div>
+
+        <div class="row-2">
+          <div class="field">
+            <label for="phone">Mobile number</label>
+            <input class="input" id="phone" name="phone" type="tel" autocomplete="tel" required placeholder="+63 9XX XXX XXXX">
+            <div id="err-phone" class="error" role="alert"></div>
+          </div>
+          <div class="field">
+            <label for="email">Email <span class="field-optional">(optional)</span></label>
+            <input class="input" id="email" name="email" type="email" autocomplete="email">
+            <div id="err-email" class="error" role="alert"></div>
+          </div>
+        </div>
+
+        <input type="hidden" id="barangay_id" name="barangay_id" value="1">
+        <div class="field">
+          <label>Barangay</label>
+          <p class="input" style="margin:0;background:var(--surface-2);cursor:default">Dalongue, Santa Barbara, Pangasinan</p>
+        </div>
+
+        <div class="row-2">
+          <div class="field">
+            <label for="password">Password</label>
+            <div class="pw-wrap">
+              <input class="input" id="password" name="password" type="password" autocomplete="new-password" minlength="8" required>
+              <button type="button" class="pw-toggle" data-target="password" aria-pressed="false">Show</button>
+            </div>
+            <div id="err-password" class="error" role="alert"></div>
+          </div>
+          <div class="field">
+            <label for="password_confirm">Confirm password</label>
+            <input class="input" id="password_confirm" name="password_confirm" type="password" autocomplete="new-password" required>
+            <div id="err-password_confirm" class="error" role="alert"></div>
+          </div>
+        </div>
+
+        <div class="field" style="margin-top:0.25rem">
+          <label class="invite-toggle" style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;user-select:none">
+            <input type="checkbox" id="has-invite" style="width:auto;accent-color:var(--accent)">
+            <span style="font-size:13.5px;font-weight:500;color:var(--text-2);text-transform:none;letter-spacing:0">
+              I have a barangay official invite code
+            </span>
+          </label>
+        </div>
+
+        <div class="field" id="invite-code-field" style="display:none">
+          <label for="invite_code">Invite code</label>
+          <input class="input" id="invite_code" name="invite_code" type="text" autocomplete="off"
+                 placeholder="e.g. BRGY-XXXX-XXXX" style="font-family:'IBM Plex Mono',monospace;letter-spacing:0.05em">
+          <div id="err-invite_code" class="error" role="alert"></div>
+          <p style="font-size:12px;color:var(--text-3);margin:0.4rem 0 0">
+            Issued by your system administrator. Your account will be reviewed before official access is granted.
+          </p>
+        </div>
+
+        <button class="btn btn-primary btn-block" type="submit">Create account</button>
+      </form>
+
+      <p class="auth-alt">Already registered? <a href="login.html">Sign in</a></p>
+    </div>
+  </section>
+</main>
+
+<script src="assets/js/auth.js"></script>
+<script src="assets/js/register.js"></script>
+</body>
+</html>

@@ -1,0 +1,644 @@
+/* =============================================================================
+   AGAP Alert — Auth pages (login + register)
+   Design: light mode, flood photo left panel, clean white form panel
+   ============================================================================= */
+
+/* ── Tokens ─────────────────────────────────────────────────────────────────── */
+:root {
+  --bg:         #1a2535;
+  --bg2:        #1f2d40;
+  --panel:      rgba(30, 44, 62, 0.92);
+  --panel-b:    rgba(255,255,255,0.05);
+  --line:       rgba(255,255,255,0.09);
+  --line-s:     rgba(255,255,255,0.13);
+  --text:       #dce8f5;
+  --text-2:     #8baabf;
+  --text-3:     #546b80;
+  --accent:     #3db8e8;
+  --accent-dim: rgba(61,184,232,0.12);
+  --accent-ink: #0a1e2e;
+  --ok:         #00c98a;
+  --warn:       #f0a500;
+  --danger:     #e84f5e;
+  --warn-dim:   rgba(240,165,0,0.13);
+  --danger-dim: rgba(232,79,94,0.11);
+  --r:          14px;
+  --r-s:        5px;
+  --font:       'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-d:     'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+/* ── Reset ───────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 15px/1.6 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle light mesh background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 10% 20%, rgba(61,184,232,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 80% at 90% 80%, rgba(0,90,160,0.07) 0%, transparent 55%),
+    radial-gradient(ellipse 100% 100% at 50% -10%, rgba(0,40,80,0.25) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+body > * { position: relative; z-index: 1; }
+
+h1, h2, h3 {
+  font-family: var(--font-d);
+  line-height: 1.1;
+  margin: 0 0 0.5em;
+  letter-spacing: -0.02em;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+:focus-visible {
+  outline: none;
+}
+
+/* ── Auth shell ──────────────────────────────────────────────────────────────── */
+.auth {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+}
+
+/* ── Brand / left panel ──────────────────────────────────────────────────────── */
+.auth-brand {
+  padding: clamp(2rem, 5vw, 4rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 3rem;
+  background:
+    linear-gradient(160deg, rgba(0,20,50,0.65) 0%, rgba(0,10,30,0.72) 100%),
+    url("../img/flood-emergency.jpg") center center / cover no-repeat;
+  border-right: 1px solid rgba(0,0,0,0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-brand::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 100%, rgba(0,150,255,0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 40% at 0% 0%, rgba(0,60,120,0.18) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* Brand logo */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  font: 700 18px var(--font-d);
+  color: #ffffff;
+  text-decoration: none;
+  letter-spacing: -0.01em;
+  position: relative;
+  z-index: 1;
+}
+
+.brand img {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.4), 0 0 20px rgba(0,150,255,0.2);
+}
+
+.auth-brand h1 {
+  font-size: clamp(26px, 3.2vw, 42px);
+  max-width: 16ch;
+  line-height: 1.12;
+  color: #ffffff;
+  margin: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.auth-brand h1 em {
+  font-style: normal;
+  color: #5dd0ff;
+}
+
+.auth-brand p {
+  color: rgba(255,255,255,0.72);
+  max-width: 42ch;
+  margin: 0.75rem 0 0;
+  line-height: 1.65;
+  font-size: 15px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Gauge wrapper also needs z-index above the ::after overlay */
+.auth-brand .gauge {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Right / form panel ──────────────────────────────────────────────────────── */
+.auth-form {
+  padding: clamp(2rem, 6vw, 5rem) clamp(1.5rem, 5vw, 4.5rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: var(--bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+}
+
+.auth-card h2 {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  margin: 0 0 0.25rem;
+}
+
+.auth-card .sub {
+  color: var(--text-2);
+  margin: 0 0 2rem;
+  font-size: 14.5px;
+}
+
+.auth-alt {
+  margin-top: 1.5rem;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 14px;
+}
+
+.auth-alt a {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ── Form elements ───────────────────────────────────────────────────────────── */
+.field {
+  margin-bottom: 0.65rem;
+}
+
+.field label,
+.field legend {
+  display: block;
+  font-weight: 600;
+  font-size: 12.5px;
+  margin-bottom: 0.4rem;
+  color: var(--text-2);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0;
+}
+
+.forgot-password {
+  display: inline-block;
+  margin-top: 0.45rem;
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.field .hint {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 0.35rem;
+}
+
+.field .error {
+  font-size: 12.5px;
+  color: var(--danger);
+  margin-top: 0.35rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.input,
+select.input {
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+  border: 1px solid var(--line-s);
+  border-radius: var(--r-s);
+  font: 400 14.5px var(--font);
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.input::placeholder { color: var(--text-3); }
+
+select.input option,
+select.input optgroup {
+  background: #1e2e42;
+  color: var(--text);
+}
+
+.input:hover {
+  border-color: rgba(255,255,255,0.22);
+  background: rgba(255,255,255,0.09);
+}
+
+.input:focus {
+  outline: none;
+  border-color: rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.08);
+  box-shadow: none;
+}
+
+.input.is-invalid {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px var(--danger-dim);
+}
+
+/* Password wrapper */
+.pw-wrap { position: relative; }
+.pw-wrap .input { padding-right: 4.8rem; }
+
+.pw-toggle {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: 0;
+  color: var(--text-3);
+  font: 600 11.5px var(--font);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: color 0.15s;
+}
+.pw-toggle:hover { color: var(--accent); }
+
+/* Two-column row */
+.row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 1rem;
+}
+
+/* ── Segmented role selector ─────────────────────────────────────────────────── */
+.segment {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  border: 0;
+  padding: 0;
+  margin: 0 0 1.25rem;
+}
+
+.segment input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segment label {
+  display: block;
+  margin: 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line-s);
+  border-radius: var(--r-s);
+  cursor: pointer;
+  background: rgba(255,255,255,0.04);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.segment label:hover {
+  border-color: rgba(61,184,232,0.35);
+  background: rgba(61,184,232,0.05);
+}
+
+.segment label strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.segment label span {
+  font-size: 12px;
+  color: var(--text-3);
+  font-weight: 400;
+}
+
+.segment input:checked + label {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+
+.segment input:checked + label strong { color: var(--accent); }
+
+.segment input:focus-visible + label {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.2rem;
+  border-radius: var(--r-s);
+  border: 1px solid var(--line-s);
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+  font: 600 14px var(--font);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.2s, border-color 0.2s, transform 0.1s;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  background: rgba(255,255,255,0.10);
+  border-color: rgba(255,255,255,0.22);
+}
+
+.btn:active { transform: scale(0.98); }
+
+.btn-primary {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #0f1c2e;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow: none;
+}
+
+.btn-primary:hover {
+  background: #e8f0fb;
+  border-color: #e8f0fb;
+  box-shadow: none;
+}
+
+.btn-block {
+  width: 100%;
+  min-height: 38px;
+  font-size: 14px;
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+}
+
+/* ── Notices ─────────────────────────────────────────────────────────────────── */
+.notice {
+  padding: 0.8rem 1rem;
+  border-radius: var(--r-s);
+  border: 1px solid var(--line-s);
+  background: rgba(255,255,255,0.04);
+  margin-bottom: 1.1rem;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.notice-success {
+  border-color: rgba(0,201,138,0.35);
+  background: rgba(0,201,138,0.07);
+  color: #4fffc0;
+}
+
+.notice-error,
+.notice-danger {
+  border-color: rgba(232,79,94,0.4);
+  background: var(--danger-dim);
+  color: #f0909a;
+}
+
+.notice-warning {
+  border-color: rgba(240,165,0,0.35);
+  background: var(--warn-dim);
+  color: #ffc844;
+}
+
+/* ── River gauge ─────────────────────────────────────────────────────────────── */
+.gauge {
+  display: grid;
+  grid-template-columns: 56px 140px 1fr;
+  gap: 0.85rem;
+  align-items: end;
+  margin: 0;
+}
+
+.gauge-tube {
+  position: relative;
+  height: 260px;
+  border: 1px solid var(--line-s);
+  border-radius: 12px;
+  background: rgba(0,10,25,0.7);
+  overflow: hidden;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.4);
+}
+
+.gauge-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  transition: height 0.8s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+.gauge-ok {
+  background: linear-gradient(180deg, #00d4ff 0%, #0071a0 100%);
+  box-shadow: 0 -4px 20px rgba(0,212,255,0.4);
+}
+
+.gauge-warn {
+  background: linear-gradient(180deg, #ffb300 0%, #a05c00 100%);
+  box-shadow: 0 -4px 20px rgba(255,179,0,0.4);
+}
+
+.gauge-danger {
+  background: linear-gradient(180deg, #ff5b6b 0%, #9b0f1e 100%);
+  box-shadow: 0 -4px 20px rgba(255,91,107,0.4);
+}
+
+.gauge-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1.5px dashed;
+  z-index: 2;
+}
+
+.gauge-line-alert { border-color: rgba(255,220,100,0.8); }
+.gauge-line-crit  { border-color: rgba(255,140,140,0.8); }
+
+.gauge-scale {
+  position: relative;
+  height: 260px;
+  font-size: 11.5px;
+  color: var(--text-3);
+  line-height: 1;
+}
+
+.gauge-scale span {
+  position: absolute;
+  left: 0;
+  transform: translateY(50%);
+  white-space: nowrap;
+}
+
+.gauge-scale span:nth-child(1) { color: #ff9fa8; }
+.gauge-scale span:nth-child(2) { color: #ffd066; }
+
+.gauge figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding-bottom: 0.2rem;
+}
+
+.gauge-reading {
+  font: 700 clamp(30px, 3.8vw, 48px) / 1 var(--font-d);
+  letter-spacing: -0.03em;
+}
+
+.gauge-text-ok     { color: var(--accent); }
+.gauge-text-warn   { color: var(--warn); }
+.gauge-text-danger { color: var(--danger); }
+
+.gauge figcaption span {
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+
+.gauge figcaption small {
+  color: var(--text-3);
+  font-size: 11.5px;
+  max-width: 22ch;
+  line-height: 1.4;
+}
+
+/* ── Demo box ────────────────────────────────────────────────────────────────── */
+.demo-box {
+  margin-top: 1.5rem;
+  padding: 1rem 1.1rem;
+  border: 1px dashed var(--line-s);
+  border-radius: var(--r-s);
+  font-size: 13px;
+  color: var(--text-3);
+  background: rgba(255,255,255,0.03);
+}
+
+.demo-box code {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--accent);
+  background: rgba(61,184,232,0.09);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.demo-box .btn {
+  margin: 0.5rem 0.4rem 0 0;
+  padding: 0.45rem 0.85rem;
+  font-size: 12.5px;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .auth { grid-template-columns: 1fr; }
+
+  .auth-brand {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding-block: 2rem;
+    gap: 1.5rem;
+  }
+
+  .auth-brand .gauge { display: none; }
+  .auth-brand p { display: none; }
+  .auth-brand h1 { font-size: 22px; max-width: none; }
+}
+
+@media (max-width: 520px) {
+  .row-2 { grid-template-columns: 1fr; }
+  .auth-form { padding: 2rem 1.25rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* ── Optional field label ────────────────────────────────────────────────────── */
+.field-optional {
+  font-weight: 400;
+  color: var(--text-3);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+}
+
+/* ── Select arrow ────────────────────────────────────────────────────────────── */
+.select-wrap {
+  position: relative;
+}
+
+.select-wrap::after {
+  content: '';
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--text-3);
+  pointer-events: none;
+}
+
+/* ── Inline link button (e.g. "Resend" on forgot-password) ──────────────────── */
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.link-btn:hover { opacity: 0.8; }
