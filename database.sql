@@ -57,14 +57,9 @@ CREATE TABLE weather_readings (
     barangay_id        INT UNSIGNED NULL,
     latitude           DECIMAL(9,6)  NOT NULL,
     longitude          DECIMAL(9,6)  NOT NULL,
-    location_name      VARCHAR(255)  NULL,
-    report_date        DATE          NULL,
     weather_condition  VARCHAR(60)   NULL,
     temperature        DECIMAL(5,2)  NULL,
-    temp_class         VARCHAR(20)   NULL,
-    humidity           TINYINT UNSIGNED NULL,
     rain_mm            DECIMAL(6,2)  NULL,
-    chance_of_rain     TINYINT UNSIGNED NULL,
     wind_speed_kmh     DECIMAL(6,2)  NULL,
     wind_direction_deg SMALLINT UNSIGNED NULL,
     recorded_at        TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -88,23 +83,16 @@ CREATE TABLE reports (
 );
 
 CREATE TABLE flood_levels (
-    id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    level         TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0=Normal 1=Watch 2=Warning 3=Critical',
-    river_meters  DECIMAL(5,2)     NOT NULL DEFAULT 0,
-    wind_kmh      DECIMAL(5,1)     NOT NULL DEFAULT 0,
-    rain_mmh      DECIMAL(5,1)     NOT NULL DEFAULT 0,
-    notes         VARCHAR(255)     NULL,
-    sms_sent      SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-    sms_failed    SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-    set_by        INT UNSIGNED     NULL,
-    created_at    TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (set_by) REFERENCES users(id) ON DELETE SET NULL
+    id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    level      TINYINT UNSIGNED  NOT NULL DEFAULT 0 COMMENT '0=Normal 1=Watch 2=Warning 3=Critical',
+    wind_kmh   DECIMAL(5,1)      NOT NULL DEFAULT 0,
+    rain_mmh   DECIMAL(5,1)      NOT NULL DEFAULT 0,
+    notes      VARCHAR(255)      NULL,
+    created_at TIMESTAMP         NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Seed default flood level (Normal)
-INSERT INTO flood_levels (level, river_meters, wind_kmh, rain_mmh, notes)
-VALUES (0, 3.20, 12, 0.5, 'Initial baseline reading');
+INSERT INTO flood_levels (level, wind_kmh, rain_mmh, notes)
+VALUES (0, 12, 0.5, 'Initial baseline reading');
 
 -- Seed shelter data
 INSERT INTO shelters (name, barangay_id, capacity, occupancy, contact) VALUES

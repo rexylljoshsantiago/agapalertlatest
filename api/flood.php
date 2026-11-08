@@ -24,33 +24,19 @@ if ($method === 'GET') {
         json_response(['ok' => true, 'reach' => $stats]);
     }
 
-    try {
-        $row = $db->query(
-            "SELECT level, river_meters, wind_kmh, rain_mmh, notes, set_by, created_at,
-                    sms_sent, sms_failed
-             FROM   flood_levels
-             ORDER  BY created_at DESC
-             LIMIT  1"
-        )->fetch();
-    } catch (PDOException $e) {
-        $row = $db->query(
-            "SELECT level, river_meters, wind_kmh, rain_mmh, notes, set_by, created_at
-             FROM   flood_levels
-             ORDER  BY created_at DESC
-             LIMIT  1"
-        )->fetch();
-        if ($row) {
-            $row['sms_sent']   = 0;
-            $row['sms_failed'] = 0;
-        }
-    }
+    $row = $db->query(
+        "SELECT level, wind_kmh, rain_mmh, notes, created_at
+         FROM   flood_levels
+         ORDER  BY created_at DESC
+         LIMIT  1"
+    )->fetch();
 
     if (!$row) {
         json_response([
             'ok'    => true,
             'flood' => [
-                'level' => 0, 'river_meters' => 0, 'wind_kmh' => 0, 'rain_mmh' => 0,
-                'notes' => '', 'created_at' => null, 'sms_sent' => 0, 'sms_failed' => 0,
+                'level' => 0, 'wind_kmh' => 0, 'rain_mmh' => 0,
+                'notes' => '', 'created_at' => null,
             ],
         ]);
     }
@@ -65,13 +51,12 @@ if ($method === 'POST') {
         json_response(['ok' => false, 'error' => 'Hindi awtorisado.'], 403);
     }
 
-    $body       = json_body();
-    $level      = (int) ($body['level'] ?? 0);
-    $river      = (float) ($body['river_meters'] ?? 0);
-    $wind       = (float) ($body['wind_kmh'] ?? 0);
-    $rain       = (float) ($body['rain_mmh'] ?? 0);
-    $notes      = trim($body['notes'] ?? '');
-    $notifySms  = !empty($body['notify_sms']);
+    $body      = json_body();
+    $level     = (int)   ($body['level']      ?? 0);
+    $wind      = (float) ($body['wind_kmh']   ?? 0);
+    $rain      = (float) ($body['rain_mmh']   ?? 0);
+    $notes     = trim($body['notes'] ?? '');
+    $notifySms = !empty($body['notify_sms']);
 
     if ($level < 0 || $level > 3) {
         json_response(['ok' => false, 'error' => 'Ang antas ay dapat 0–3.'], 400);
@@ -82,48 +67,34 @@ if ($method === 'POST') {
     )->fetch();
     $prevLevel = $prev ? (int) $prev['level'] : null;
 
-    $smsSent   = 0;
-    $smsFailed = 0;
-    $smsNote   = null;
+    $smsSent = 0;
+    $smsNote = null;
 
     $shouldSms = $notifySms || ($level >= 1 && ($prevLevel === null || $prevLevel !== $level));
     if ($shouldSms && $level >= 1) {
-        $labels = ['Normal', 'Bantay', 'Babala', 'Kritikal'];
-        $label  = $labels[$level] ?? 'Alerto';
-        $detail = $notes !== '' ? $notes : 'Suriin ang AGAP Alert para sa mga hakbang.';
+        $labels  = ['Normal', 'Bantay', 'Babala', 'Kritikal'];
+        $label   = $labels[$level] ?? 'Alerto';
+        $detail  = $notes !== '' ? $notes : 'Suriin ang AGAP Alert para sa mga hakbang.';
         $smsBody = 'AGAP ALERT Dalongue: Antas ' . $level . ' (' . $label . '). ' . $detail
             . ' MDRRMO (075)518-2024';
 
-        $result = agap_send_sms_bulk($db, $brgyId, $smsBody);
-        $smsSent   = (int) $result['sent'];
-        $smsFailed = (int) $result['failed'];
+        $result  = agap_send_sms_bulk($db, $brgyId, $smsBody);
+        $smsSent = (int) $result['sent'];
         if (!empty($result['skipped'])) {
             $smsNote = $result['reason'];
         }
     }
 
-    try {
-        $db->prepare(
-            'INSERT INTO flood_levels (level, river_meters, wind_kmh, rain_mmh, notes, set_by, sms_sent, sms_failed)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-        )->execute([$level, $river, $wind, $rain, $notes, $user['id'], $smsSent, $smsFailed]);
-    } catch (PDOException $e) {
-        $db->prepare(
-            'INSERT INTO flood_levels (level, river_meters, wind_kmh, rain_mmh, notes, set_by)
-             VALUES (?, ?, ?, ?, ?, ?)'
-        )->execute([$level, $river, $wind, $rain, $notes, $user['id']]);
-    }
+    $db->prepare(
+        'INSERT INTO flood_levels (level, wind_kmh, rain_mmh, notes)
+         VALUES (?, ?, ?, ?)'
+    )->execute([$level, $wind, $rain, $notes]);
 
-    $payload = [
+    json_response([
         'ok'      => true,
         'message' => 'Antas ng baha na-update.',
-        'sms'     => [
-            'sent'   => $smsSent,
-            'failed' => $smsFailed,
-            'note'   => $smsNote,
-        ],
-    ];
-    json_response($payload);
+        'sms'     => ['sent' => $smsSent, 'note' => $smsNote],
+    ]);
 }
 
 json_response(['ok' => false, 'error' => 'Hindi pinapayagang paraan.'], 405);

@@ -2123,7 +2123,42 @@
   if (_lgEl) {
     _lgEl.addEventListener('click', function (e) {
       var b = e.target.closest('button');
-      if (b && b.dataset.v) { S.lang = b.dataset.v; render(); }
+      if (!b || !b.dataset.v || b.dataset.v === S.lang) return;
+      S.lang = b.dataset.v;
+      // Render without destroying the map — only re-render the non-map parts
+      var scrollY = window.scrollY;
+      if (S.tab === 'radar') {
+        // Re-render everything except the map container itself
+        band();
+        netbar();
+        nav();
+        updateWeatherUI();
+        // Re-render the sidebar panel (facts, todo, teams) without touching the map div
+        var pg = document.getElementById('pg');
+        if (pg) {
+          // Save the current map element before re-rendering
+          var mapEl = document.getElementById('maplibre-map');
+          var mapParent = mapEl ? mapEl.parentNode : null;
+          var mapPlaceholder = document.createElement('div');
+          mapPlaceholder.id = 'map-placeholder-tmp';
+          if (mapEl && mapParent) mapParent.replaceChild(mapPlaceholder, mapEl);
+          pg.innerHTML = radar();
+          // Put the live map element back in place
+          var newParent = document.getElementById('map-placeholder-tmp');
+          if (newParent && mapEl) newParent.parentNode.replaceChild(mapEl, newParent);
+          else if (mapEl) {
+            var slot = pg.querySelector('#maplibre-map');
+            if (!slot && pg.querySelector('.map')) pg.querySelector('.map').prepend(mapEl);
+          }
+        }
+      } else {
+        render();
+      }
+      document.documentElement.lang = S.lang === 'fil' ? 'fil' : 'en';
+      document.querySelectorAll('#lg button').forEach(function (btn) {
+        btn.setAttribute('aria-pressed', String(btn.dataset.v === S.lang));
+      });
+      window.scrollTo(0, scrollY);
     });
   }
 

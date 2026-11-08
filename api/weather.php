@@ -11,6 +11,7 @@ if ($lat === false || $lon === false || $lat === null || $lon === null)
 
 $db = db();
 
+// ── Cache check ───────────────────────────────────────────────────────────────
 $cache = $db->prepare(
     "SELECT * FROM weather_readings
      WHERE  ABS(latitude - ?) < 0.01
@@ -26,20 +27,13 @@ if ($cached) {
     json_response(['ok' => true, 'source' => 'cache', 'weather' => formatRow($cached)]);
 }
 
-// Fetch  
+// ── Fetch from Open-Meteo ─────────────────────────────────────────────────────
 $url = "https://api.open-meteo.com/v1/forecast?"
-     . "latitude=$lat"
-     . "&longitude=$lon"
-     . "&current=temperature_2m,relative_humidity_2m,weather_code,rain,wind_speed_10m,wind_direction_10m"
-     . "&daily=precipitation_probability_max"
+     . "latitude=$lat&longitude=$lon"
+     . "&current=temperature_2m,weather_code,rain,wind_speed_10m,wind_direction_10m"
      . "&timezone=auto";
 
-$context  = stream_context_create([
-    'http' => [
-        'header'  => "User-Agent: AgapAlert/1.0\r\n",
-        'timeout' => 5,
-    ],
-]);
+$context  = stream_context_create(['http' => ['header' => "User-Agent: AgapAlert/1.0\r\n", 'timeout' => 5]]);
 $response = @file_get_contents($url, false, $context);
 
 if ($response === false)
@@ -50,80 +44,43 @@ $data = json_decode($response, true);
 if (!isset($data['current']))
     json_response(['ok' => false, 'error' => 'Unexpected weather response.'], 502);
 
-//  Reverse-geocode location name 
-$geoUrl      = "https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lon";
-$geoResponse = @file_get_contents($geoUrl, false, $context);
-$geoData     = json_decode($geoResponse, true);
-
-$locationName = $geoData['address']['city']
-    ?? $geoData['address']['town']
-    ?? $geoData['address']['village']
-    ?? 'Unknown Location';
-
-// Parse weather 
-$current = $data['current'];
-$daily   = $data['daily'];
-$temp    = (float) $current['temperature_2m'];
-
-$tempClass = match(true) {
-    $temp < 18  => 'Cold',
-    $temp <= 27 => 'Cool',
-    $temp <= 32 => 'Warm',
-    default     => 'Hot',
-};
-
+$current   = $data['current'];
+$temp      = (float) $current['temperature_2m'];
 $condition = getSkyCondition((int) $current['weather_code']);
 
-// Store in DB 
-$insert = $db->prepare(
+// ── Store in DB ───────────────────────────────────────────────────────────────
+$db->prepare(
     'INSERT INTO weather_readings
-        (barangay_id, latitude, longitude, location_name, report_date,
-         weather_condition, temperature, temp_class, humidity,
-         rain_mm, chance_of_rain, wind_speed_kmh, wind_direction_deg)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-);
-$insert->execute([
+        (barangay_id, latitude, longitude, weather_condition,
+         temperature, rain_mm, wind_speed_kmh, wind_direction_deg)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+)->execute([
     $barangayId,
     $lat,
     $lon,
-    $locationName,
-    $daily['time'][0],
     $condition,
     $temp,
-    $tempClass,
-    (int)   $current['relative_humidity_2m'],
     (float) $current['rain'],
-    (int)   $daily['precipitation_probability_max'][0],
     (float) $current['wind_speed_10m'],
     (int)   $current['wind_direction_10m'],
 ]);
 
 $weather = [
-    'location_name'      => $locationName,
-    'report_date'        => $daily['time'][0],
     'weather_condition'  => $condition,
     'temperature'        => $temp,
-    'temp_class'         => $tempClass,
-    'humidity'           => (int)   $current['relative_humidity_2m'],
     'rain_mm'            => (float) $current['rain'],
-    'chance_of_rain'     => (int)   $daily['precipitation_probability_max'][0],
     'wind_speed_kmh'     => (float) $current['wind_speed_10m'],
     'wind_direction_deg' => (int)   $current['wind_direction_10m'],
 ];
 
 json_response(['ok' => true, 'source' => 'live', 'weather' => $weather]);
 
-//  Helpers 
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function formatRow(array $row): array {
     return [
-        'location_name'      => $row['location_name'],
-        'report_date'        => $row['report_date'],
         'weather_condition'  => $row['weather_condition'],
         'temperature'        => (float) $row['temperature'],
-        'temp_class'         => $row['temp_class'],
-        'humidity'           => (int)   $row['humidity'],
         'rain_mm'            => (float) $row['rain_mm'],
-        'chance_of_rain'     => (int)   $row['chance_of_rain'],
         'wind_speed_kmh'     => (float) $row['wind_speed_kmh'],
         'wind_direction_deg' => (int)   $row['wind_direction_deg'],
     ];
