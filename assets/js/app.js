@@ -1,5 +1,3 @@
-
-
 (function () {
 
   var _raw  = localStorage.getItem('agapalert_user');
@@ -792,7 +790,6 @@
   }
 
   /* ── View renderers ──────────────────────────────────────────────────────── */
-  function band() {
   function band() {
     var b = document.getElementById('band');
     if (!b) return;
@@ -2436,4 +2433,3 @@
   }
 
 })();
-
