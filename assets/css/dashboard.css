@@ -789,16 +789,24 @@ svg.i {
   box-shadow: var(--sh-md);
 }
 
-#leaflet-map {
+#maplibre-map {
   width: 100%;
   height: 100%;
   border-radius: var(--r);
   z-index: 0;
 }
 
-/* Ensure Leaflet tiles and controls are not clipped */
-.leaflet-container { background: #1a2535; }
-.leaflet-tile-pane { z-index: 1; }
+/* MapLibre popup overrides to match app theme */
+.maplibregl-popup-content {
+  font: 400 13px/1.5 "IBM Plex Sans", system-ui, sans-serif;
+  border-radius: 8px;
+  padding: 10px 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+
+.maplibregl-ctrl-attrib {
+  font-size: 11px !important;
+}
 
 .tag {
   position: absolute;

@@ -600,28 +600,28 @@
     return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
   }
 
-  /* ── Leaflet map ─────────────────────────────────────────────────────────── */
-  var _leafMap         = null;
-  var _shelterMarkers  = [];
-  var _floodLayer      = null;
-  var _incidentMarkers = [];
-  var _routeLayer      = null;
-  var _userMarker      = null;
+  /* ── MapLibre GL map ─────────────────────────────────────────────────────── */
+  var _map             = null;   // MapLibre map instance
+  var _shelterMarkers  = [];     // maplibregl.Marker[]
+  var _floodLayerId    = null;   // GeoJSON source/layer id for flood zone
+  var _incidentMarkers = [];     // maplibregl.Marker[]
+  var _routeLayerId    = null;   // GeoJSON source/layer id for route
+  var _userMarker      = null;   // maplibregl.Marker for user position
 
-  // Dalongue, Santa Barbara — fixed map center
-  var MAP_CENTER = [15.9650, 120.4150];
+  // Dalongue, Santa Barbara — map center [lon, lat] (MapLibre convention)
+  var MAP_CENTER = [120.4150, 15.9650];
   var MAP_ZOOM   = 15;
 
-  // Real-world coordinates for evacuation centers (Dalongue, Santa Barbara, Pangasinan)
+  // Evacuation center coordinates [lon, lat]
   var CT_COORDS = [
-    [15.9643, 120.4138]   // Dalongue Barangay Evacuation Hall
+    [120.4138, 15.9643]   // Dalongue Barangay Evacuation Hall
   ];
 
-  // Flood zone polygon along Sinocalan River (Dalongue)
-  var FLOOD_ZONE = [
-    [15.9680, 120.4100], [15.9690, 120.4150], [15.9670, 120.4190],
-    [15.9650, 120.4210], [15.9620, 120.4200], [15.9600, 120.4170],
-    [15.9610, 120.4130], [15.9630, 120.4110]
+  // Flood zone polygon — GeoJSON [lon, lat] pairs
+  var FLOOD_ZONE_COORDS = [
+    [120.4100, 15.9680], [120.4150, 15.9690], [120.4190, 15.9670],
+    [120.4210, 15.9650], [120.4200, 15.9620], [120.4170, 15.9600],
+    [120.4130, 15.9610], [120.4110, 15.9630], [120.4100, 15.9680]
   ];
 
   function floodColor() {
@@ -632,108 +632,134 @@
          :             '#ef4444';
   }
 
+  /* ── MapLibre helpers ────────────────────────────────────────────────────── */
+
+  // Remove a GeoJSON source+layer pair by id
+  function _removeLayer(id) {
+    if (!_map || !id) return;
+    try { if (_map.getLayer(id))        _map.removeLayer(id); } catch(e) {}
+    try { if (_map.getSource(id))       _map.removeSource(id); } catch(e) {}
+    try { if (_map.getLayer(id+'-out')) _map.removeLayer(id+'-out'); } catch(e) {}
+  }
+
   function initMap() {
-    var el = document.getElementById('leaflet-map');
-    if (!el || _leafMap) return;
+    var el = document.getElementById('maplibre-map');
+    if (!el || _map) return;
 
-    L.Icon.Default.imagePath = 'assets/lib/images/';
-
-    _leafMap = L.map('leaflet-map', {
-      center:      MAP_CENTER,
-      zoom:        MAP_ZOOM,
-      zoomControl: false
+    _map = new maplibregl.Map({
+      container: 'maplibre-map',
+      style:     'https://tiles.openfreemap.org/styles/liberty',
+      center:    MAP_CENTER,
+      zoom:      MAP_ZOOM,
+      pitch:     0,
+      bearing:   0,
+      attributionControl: false
     });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      maxZoom: 19,
-      crossOrigin: true
-    }).on('tileerror', function () {
-      var el = document.getElementById('leaflet-map');
-      if (el && !el.querySelector('.tile-error-msg')) {
-        el.style.position = 'relative';
+    // Minimal attribution
+    _map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
+
+    _map.on('load', function () {
+      _updateFloodLayer();
+      _updateShelterMarkers();
+      if (off()) _updateIncidentMarkers();
+    });
+
+    _map.on('error', function () {
+      var container = document.getElementById('maplibre-map');
+      if (container && !container.querySelector('.tile-error-msg')) {
         var msg = document.createElement('div');
         msg.className = 'tile-error-msg';
         msg.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);'
           + 'background:rgba(0,0,0,.7);color:#fff;padding:12px 20px;border-radius:8px;'
           + 'font-size:13px;text-align:center;z-index:9999;pointer-events:none;max-width:280px';
-      msg.textContent = T('mapOffline');
-        el.appendChild(msg);
+        msg.textContent = T('mapOffline');
+        container.appendChild(msg);
       }
-    }).addTo(_leafMap);
+    });
 
-    _updateFloodLayer();
-    _updateShelterMarkers();
-    if (off()) _updateIncidentMarkers();
-
-    // Ask for location permission on map load
     requestLocation();
   }
 
+
   function _updateFloodLayer() {
-    if (!_leafMap) return;
-    if (_floodLayer) { _leafMap.removeLayer(_floodLayer); _floodLayer = null; }
+    if (!_map || !_map.loaded()) return;
+    _removeLayer('flood-zone');
     if (!S.fl || S.lv === 0) return;
-    var c = floodColor();
-    _floodLayer = L.polygon(FLOOD_ZONE, {
-      color: c, fillColor: c, fillOpacity: 0.25, weight: 2, dashArray: '6 4'
-    }).addTo(_leafMap);
-    _floodLayer.bindTooltip('Flood zone – Sinocalan River', { sticky: true });
+    var color = floodColor();
+    _map.addSource('flood-zone', {
+      type: 'geojson',
+      data: {
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: [FLOOD_ZONE_COORDS] }
+      }
+    });
+    _map.addLayer({
+      id: 'flood-zone', type: 'fill',
+      source: 'flood-zone',
+      paint: { 'fill-color': color, 'fill-opacity': 0.25 }
+    });
+    _map.addLayer({
+      id: 'flood-zone-out', type: 'line',
+      source: 'flood-zone',
+      paint: { 'line-color': color, 'line-width': 2, 'line-dasharray': [3, 2] }
+    });
+    _floodLayerId = 'flood-zone';
   }
 
   function _updateShelterMarkers() {
-    if (!_leafMap) return;
-    _shelterMarkers.forEach(function (m) { _leafMap.removeLayer(m); });
+    if (!_map) return;
+    _shelterMarkers.forEach(function (m) { m.remove(); });
     _shelterMarkers = [];
-
-    var shelterIcon = L.divIcon({
-      className: '',
-      html: '<div style="width:28px;height:28px;border-radius:50%;background:#2563eb;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.4)">S</div>',
-      iconSize: [28, 28], iconAnchor: [14, 14]
-    });
-
     CT.forEach(function (c, i) {
       var cap = c.c - c.o;
       var pct = Math.round(c.o / c.c * 100);
       var col = pct > 90 ? '#ef4444' : pct > 70 ? '#f59e0b' : '#22c55e';
-      var m = L.marker(CT_COORDS[i], { icon: shelterIcon })
-        .addTo(_leafMap)
-        .bindPopup(
-          '<b>' + (i + 1) + '. ' + c.n + '</b><br>' +
-          c.b + '<br>' +
-          c.k + ' km · ' + walk(c) + ' min walk<br>' +
-          '<span style="color:' + col + '">' + cap + ' places left (' + pct + '% full)</span>' +
-          (c.p ? '<br>📞 ' + c.p : '')
-        );
-      _shelterMarkers.push(m);
+      var el = document.createElement('div');
+      el.style.cssText = 'width:28px;height:28px;border-radius:50%;background:#2563eb;'
+        + 'border:3px solid #fff;display:flex;align-items:center;justify-content:center;'
+        + 'font-weight:700;font-size:12px;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.4);cursor:pointer';
+      el.textContent = 'S';
+      var popup = new maplibregl.Popup({ offset: 18 }).setHTML(
+        '<b>' + (i + 1) + '. ' + c.n + '</b><br>' +
+        c.b + '<br>' + c.k + ' km · ' + walk(c) + ' min walk<br>' +
+        '<span style="color:' + col + '">' + cap + ' places left (' + pct + '% full)</span>' +
+        (c.p ? '<br>📞 ' + c.p : '')
+      );
+      var marker = new maplibregl.Marker({ element: el })
+        .setLngLat(CT_COORDS[i])
+        .setPopup(popup)
+        .addTo(_map);
+      _shelterMarkers.push(marker);
     });
   }
 
   function _updateIncidentMarkers() {
-    if (!_leafMap) return;
-    _incidentMarkers.forEach(function (m) { _leafMap.removeLayer(m); });
+    if (!_map) return;
+    _incidentMarkers.forEach(function (m) { m.remove(); });
     _incidentMarkers = [];
     if (!S.inc) return;
-
-    var incIcon = L.divIcon({
-      className: '',
-      html: '<div style="width:16px;height:16px;background:#ef4444;transform:rotate(45deg);border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,.4)"></div>',
-      iconSize: [16, 16], iconAnchor: [8, 8]
-    });
-
     S.reps.filter(function (r) { return r.st < 3; }).forEach(function (r, idx) {
-      var lat = MAP_CENTER[0] + (idx % 3 - 1) * 0.003;
-      var lon = MAP_CENTER[1] + (Math.floor(idx / 3) - 0.5) * 0.003;
-      var m = L.marker([lat, lon], { icon: incIcon })
-        .addTo(_leafMap)
-        .bindPopup('<b>' + r.pr + ' priority</b><br>' + r.t + '<br><small>' + r.w + '</small>');
-      _incidentMarkers.push(m);
+      // Approximate positions around map center
+      var lon = MAP_CENTER[0] + (Math.floor(idx / 3) - 0.5) * 0.003;
+      var lat = MAP_CENTER[1] + (idx % 3 - 1) * 0.003;
+      var el = document.createElement('div');
+      el.style.cssText = 'width:16px;height:16px;background:#ef4444;'
+        + 'transform:rotate(45deg);border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,.4);cursor:pointer';
+      var popup = new maplibregl.Popup({ offset: 12 }).setHTML(
+        '<b>' + r.pr + ' priority</b><br>' + r.t + '<br><small>' + r.w + '</small>'
+      );
+      var marker = new maplibregl.Marker({ element: el })
+        .setLngLat([lon, lat])
+        .setPopup(popup)
+        .addTo(_map);
+      _incidentMarkers.push(marker);
     });
   }
 
   function map() {
     return '<div class="map">'
-      + '<div id="leaflet-map"></div>'
+      + '<div id="maplibre-map"></div>'
       + '<span class="tag mono' + (S.net ? '' : ' old') + '">'
           + (S.net ? T('upd') : T('saved'))
       + '</span>'
@@ -757,26 +783,21 @@
       + '</div>';
   }
 
-  // Called after map() HTML is injected into the DOM
   function initMapAfterRender() {
     if (S.tab !== 'radar') return;
     setTimeout(function () {
-      var el = document.getElementById('leaflet-map');
+      var el = document.getElementById('maplibre-map');
       if (!el) return;
-
-      if (_leafMap) {
-        _leafMap.remove();
-        _leafMap      = null;
-        _userMarker   = null;
-        _shelterMarkers   = [];
-        _floodLayer       = null;
-        _incidentMarkers  = [];
-        _routeLayer       = null;
+      if (_map) {
+        _map.remove();
+        _map             = null;
+        _userMarker      = null;
+        _shelterMarkers  = [];
+        _floodLayerId    = null;
+        _incidentMarkers = [];
+        _routeLayerId    = null;
       }
-
       initMap();
-
-      // Restore user marker if location was already granted
       if (_userLat !== null) _updateUserMarker();
     }, 100);
   }
@@ -1828,8 +1849,15 @@
     tab:   function (v)     { S.tab = v; render(); },
     route: function (v) {
       var idx = +v;
-      if (S.tab !== 'radar') { S.tab = 'radar'; render(); }
-      setTimeout(function () { _drawRoute(idx); }, 200);
+      if (S.tab !== 'radar') {
+        S.tab = 'radar';
+        render();
+        // Wait for map to initialise after render before drawing
+        setTimeout(function () { _drawRoute(idx); }, 350);
+      } else {
+        // Map already visible — draw immediately (small delay for re-renders)
+        setTimeout(function () { _drawRoute(idx); }, 50);
+      }
       toast(T('routeDrawing') + CT[idx].n + '…');
     },
     open:  function (v)     { S.open = S.open === v ? null : v; render(); },
@@ -1901,11 +1929,31 @@
         onOk: doAdv
       });
     },
-    zin:   function ()      { if (_leafMap) _leafMap.zoomIn(); },
-    zout:  function ()      { if (_leafMap) _leafMap.zoomOut(); },
-    zr:    function ()      { if (_userLat !== null && _leafMap) { _leafMap.setView([_userLat, _userLon], 16); } else { requestLocation(); if (_leafMap) _leafMap.setView(MAP_CENTER, MAP_ZOOM); } },
-    lfl:   function ()      { S.fl  = !S.fl;  _updateFloodLayer(); var b = document.querySelector('[data-a="lfl"]'); if(b) b.setAttribute('aria-pressed', String(S.fl)); },
-    linc:  function ()      { S.inc = !S.inc; if(off()) _updateIncidentMarkers(); var b = document.querySelector('[data-a="linc"]'); if(b) b.setAttribute('aria-pressed', String(S.inc)); },
+    zin:   function ()      { if (_map) _map.zoomIn(); },
+    zout:  function ()      { if (_map) _map.zoomOut(); },
+    zr:    function ()      {
+      if (_userLat !== null && _map) {
+        _map.flyTo({ center: [_userLon, _userLat], zoom: 16 });
+      } else {
+        requestLocation();
+        if (_map) _map.flyTo({ center: MAP_CENTER, zoom: MAP_ZOOM });
+      }
+    },
+    lfl:   function ()      {
+      S.fl = !S.fl;
+      if (_map && _map.loaded()) {
+        _removeLayer('flood-zone'); _floodLayerId = null;
+        if (S.fl) _updateFloodLayer();
+      }
+      var b = document.querySelector('[data-a="lfl"]');
+      if (b) b.setAttribute('aria-pressed', String(S.fl));
+    },
+    linc:  function ()      {
+      S.inc = !S.inc;
+      if (off()) _updateIncidentMarkers();
+      var b = document.querySelector('[data-a="linc"]');
+      if (b) b.setAttribute('aria-pressed', String(S.inc));
+    },
     toast: function (v)     { toast(v); },
     sos:   sosForm,
     rep:   repForm,
@@ -2084,17 +2132,86 @@
   var _userLon = null;
 
   function _updateUserMarker() {
-    if (!_leafMap || _userLat === null) return;
-    var userIcon = L.divIcon({
-      className: '',
-      html: '<div style="width:18px;height:18px;border-radius:50%;background:#3b82f6;border:3px solid #fff;box-shadow:0 0 0 8px rgba(59,130,246,.2)"></div>',
-      iconSize:   [18, 18],
-      iconAnchor: [9, 9]
-    });
-    if (_userMarker) _leafMap.removeLayer(_userMarker);
-    _userMarker = L.marker([_userLat, _userLon], { icon: userIcon, zIndexOffset: 1000 })
-      .addTo(_leafMap)
-      .bindPopup('<b>Your location</b>');
+    if (!_map || _userLat === null) return;
+    var el = document.createElement('div');
+    el.style.cssText = 'width:18px;height:18px;border-radius:50%;background:#3b82f6;'
+      + 'border:3px solid #fff;box-shadow:0 0 0 8px rgba(59,130,246,.2)';
+    if (_userMarker) _userMarker.remove();
+    _userMarker = new maplibregl.Marker({ element: el })
+      .setLngLat([_userLon, _userLat])
+      .setPopup(new maplibregl.Popup({ offset: 12 }).setHTML('<b>Your location</b>'))
+      .addTo(_map);
+  }
+
+  /* ── Route drawing ───────────────────────────────────────────────────────── */
+  function _drawRoute(idx) {
+    if (!_map) return;
+    var dest = CT_COORDS[idx];
+    if (!dest) return;
+
+    // Remove existing route
+    _removeLayer('route');
+    _routeLayerId = null;
+
+    var fromLon = _userLon !== null ? _userLon : MAP_CENTER[0];
+    var fromLat = _userLat !== null ? _userLat : MAP_CENTER[1];
+
+    function _setRouteBtn(shown) {
+      document.querySelectorAll('[data-a="route"][data-v="' + idx + '"]').forEach(function (b) {
+        b.innerHTML = ic('nav') + (shown ? T('shown') : T('route'));
+      });
+    }
+
+    function _drawLine(coords) {
+      var geojson = {
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates: coords }
+      };
+      _map.addSource('route', { type: 'geojson', data: geojson });
+      _map.addLayer({
+        id: 'route', type: 'line', source: 'route',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': '#00d4ff', 'line-width': 5, 'line-opacity': 0.9 }
+      });
+      _routeLayerId = 'route';
+      // Fit map to route bounds
+      var lons = coords.map(function(c){return c[0];});
+      var lats = coords.map(function(c){return c[1];});
+      _map.fitBounds(
+        [[Math.min.apply(null,lons), Math.min.apply(null,lats)],
+         [Math.max.apply(null,lons), Math.max.apply(null,lats)]],
+        { padding: 60 }
+      );
+      _setRouteBtn(true);
+    }
+
+    // Try OSRM for a real walking route
+    var url = 'https://router.project-osrm.org/route/v1/foot/'
+      + fromLon + ',' + fromLat + ';'
+      + dest[0] + ',' + dest[1]
+      + '?overview=full&geometries=geojson';
+
+    fetch(url, { signal: AbortSignal.timeout ? AbortSignal.timeout(6000) : undefined })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.routes || !data.routes[0]) {
+          // Straight line fallback
+          _drawLine([[fromLon, fromLat], [dest[0], dest[1]]]);
+          return;
+        }
+        var coords = data.routes[0].geometry.coordinates; // already [lon,lat] for MapLibre
+        var dist = (data.routes[0].distance / 1000).toFixed(1);
+        var mins = Math.round(data.routes[0].duration / 60);
+        _drawLine(coords);
+        // Show popup at destination
+        new maplibregl.Popup({ offset: 12, closeOnClick: true })
+          .setLngLat(dest)
+          .setHTML('<b>' + CT[idx].n + '</b><br>' + dist + ' km · ' + mins + ' min walk')
+          .addTo(_map);
+      })
+      .catch(function () {
+        _drawLine([[fromLon, fromLat], [dest[0], dest[1]]]);
+      });
   }
 
   function requestLocation() {
@@ -2103,15 +2220,13 @@
       function (pos) {
         _userLat = pos.coords.latitude;
         _userLon = pos.coords.longitude;
-        if (_leafMap) {
-          _leafMap.setView([_userLat, _userLon], 16);
+        if (_map) {
+          _map.flyTo({ center: [_userLon, _userLat], zoom: 16 });
           _updateUserMarker();
         }
         toast(T('locFound'));
       },
-      function () {
-        // Denied or unavailable — stay centered on Dalongue, no dot shown
-      },
+      function () { /* denied — stay on Dalongue */ },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   }

@@ -171,15 +171,22 @@
   });
 
   document.getElementById('avatar-remove').addEventListener('click', function () {
-    fetch('api/profile/avatar.php', { method: 'DELETE', credentials: 'same-origin' })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (!data.ok) return;
-        user.avatar_path = null;
-        localStorage.setItem('agapalert_user', JSON.stringify(user));
-        populate();
-        updateChipAvatar();
-      });
+    confirm({
+      title: 'Remove profile picture?',
+      body:  'Your profile picture will be deleted. You can upload a new one any time.',
+      okLabel: 'Remove', okClass: 'o',
+      onOk: function () {
+        fetch('api/profile/avatar.php', { method: 'DELETE', credentials: 'same-origin' })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (!data.ok) return;
+            user.avatar_path = null;
+            localStorage.setItem('agapalert_user', JSON.stringify(user));
+            populate();
+            updateChipAvatar();
+          });
+      }
+    });
   });
 
   document.getElementById('avatar-el').addEventListener('click', function () {
