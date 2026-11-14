@@ -27,8 +27,9 @@ function current_user(): ?array {
     }
 
     $stmt = db()->prepare(
-        'SELECT id, full_name, email, phone_number, role, status,
-                barangay_id, avatar_path, created_at
+        'SELECT id, fname, mname, lname,
+                CONCAT(fname, IF(mname IS NOT NULL AND mname != "", CONCAT(" ", mname, " "), " "), lname) AS full_name,
+                email, phone_number, role, status, avatar_path, invite_code, created_at
          FROM   users
          WHERE  id = ? AND status != "banned"
          LIMIT  1'

@@ -14,13 +14,12 @@ $method = $_SERVER['REQUEST_METHOD'];
 // ── GET ───────────────────────────────────────────────────────────────────────
 if ($method === 'GET') {
     $rows = $db->query(
-        "SELECT u.id, u.full_name, u.email, u.phone_number,
-                b.name AS barangay_name, b.city AS barangay_city,
-                u.avatar_path, u.created_at
-         FROM   users u
-         LEFT   JOIN barangays b ON b.id = u.barangay_id
-         WHERE  u.role = 'official' AND u.status = 'active'
-         ORDER  BY u.full_name ASC"
+        "SELECT id, fname, mname, lname,
+                CONCAT(fname, IF(mname IS NOT NULL AND mname != '', CONCAT(' ', mname, ' '), ' '), lname) AS full_name,
+                email, phone_number, avatar_path, invite_code, created_at
+         FROM   users
+         WHERE  role = 'official' AND status = 'active'
+         ORDER  BY lname ASC, fname ASC"
     )->fetchAll();
 
     json_response(['ok' => true, 'officials' => $rows]);

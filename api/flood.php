@@ -11,7 +11,6 @@ require_auth();
 $db     = db();
 $method = $_SERVER['REQUEST_METHOD'];
 $cfg    = agap_sms_config();
-$brgyId = (int) ($cfg['barangay_id'] ?? 1);
 
 // ── GET ───────────────────────────────────────────────────────────────────────
 if ($method === 'GET') {
@@ -20,7 +19,7 @@ if ($method === 'GET') {
         if (!in_array($user['role'], ['official', 'admin'], true)) {
             json_response(['ok' => false, 'error' => 'Hindi awtorisado.'], 403);
         }
-        $stats = agap_alert_recipient_count($db, $brgyId);
+        $stats = agap_alert_recipient_count($db);
         json_response(['ok' => true, 'reach' => $stats]);
     }
 
@@ -78,7 +77,7 @@ if ($method === 'POST') {
         $smsBody = 'AGAP ALERT Dalongue: Antas ' . $level . ' (' . $label . '). ' . $detail
             . ' MDRRMO (075)518-2024';
 
-        $result  = agap_send_sms_bulk($db, $brgyId, $smsBody);
+        $result  = agap_send_sms_bulk($db, $smsBody);
         $smsSent = (int) $result['sent'];
         if (!empty($result['skipped'])) {
             $smsNote = $result['reason'];
@@ -86,9 +85,9 @@ if ($method === 'POST') {
     }
 
     $db->prepare(
-        'INSERT INTO flood_levels (level, wind_kmh, rain_mmh, notes)
-         VALUES (?, ?, ?, ?)'
-    )->execute([$level, $wind, $rain, $notes]);
+        'INSERT INTO flood_levels (level, wind_kmh, rain_mmh, notes, marked_by)
+         VALUES (?, ?, ?, ?, ?)'
+    )->execute([$level, $wind, $rain, $notes, $user['id']]);
 
     json_response([
         'ok'      => true,

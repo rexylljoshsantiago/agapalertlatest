@@ -16,7 +16,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 if ($method === 'GET') {
     $rows = $db->query(
         'SELECT ic.id, ic.code, ic.note, ic.status, ic.created_at,
-                u.full_name AS used_by_name
+                CONCAT(u.fname, IF(u.mname IS NOT NULL AND u.mname != "", CONCAT(" ", u.mname, " "), " "), u.lname) AS used_by_name
          FROM   invite_codes ic
          LEFT   JOIN users u ON u.id = ic.used_by
          ORDER  BY ic.created_at DESC'

@@ -42,11 +42,11 @@ if ($method === 'GET') {
         $total = (int) $db->query("SELECT COUNT(*) FROM reports")->fetchColumn();
 
         $stmt = $db->prepare(
-            "SELECT r.id, r.title, r.description, r.location, r.status, r.is_sos,
-                    r.created_at, u.full_name AS reporter_name, b.name AS barangay_name
+            "SELECT r.id, r.title, r.description, r.zone, r.status, r.is_sos,
+                    r.created_at,
+                    CONCAT(u.fname, IF(u.mname IS NOT NULL AND u.mname != '', CONCAT(' ', u.mname, ' '), ' '), u.lname) AS reporter_name
              FROM   reports r
-             LEFT   JOIN users      u ON u.id = r.user_id
-             LEFT   JOIN barangays  b ON b.id = r.barangay_id
+             LEFT   JOIN users u ON u.id = r.user_id
              ORDER  BY r.created_at DESC
              LIMIT  :lim OFFSET :off"
         );
@@ -56,23 +56,15 @@ if ($method === 'GET') {
         $rows = $stmt->fetchAll();
     } else {
         // Residents only see non-SOS reports in their barangay
-        $total = (int) $db->prepare(
-            "SELECT COUNT(*) FROM reports
-             WHERE  is_sos = 0 AND barangay_id = ?"
-        )->execute([$user['barangay_id']]) ? $db->query(
-            "SELECT COUNT(*) FROM reports WHERE is_sos = 0 AND barangay_id = " . (int)$user['barangay_id']
-        )->fetchColumn() : 0;
+        $total = (int) $db->query("SELECT COUNT(*) FROM reports WHERE is_sos = 0")->fetchColumn();
 
         $stmt = $db->prepare(
-            "SELECT r.id, r.title, r.description, r.location, r.status, r.is_sos,
-                    r.created_at, b.name AS barangay_name
+            "SELECT r.id, r.title, r.description, r.zone, r.status, r.is_sos, r.created_at
              FROM   reports r
-             LEFT   JOIN barangays b ON b.id = r.barangay_id
-             WHERE  r.is_sos = 0 AND r.barangay_id = :bid
+             WHERE  r.is_sos = 0
              ORDER  BY r.created_at DESC
              LIMIT  :lim OFFSET :off"
         );
-        $stmt->bindValue(':bid', (int) $user['barangay_id'], PDO::PARAM_INT);
         $stmt->bindValue(':lim', $limit, PDO::PARAM_INT);
         $stmt->bindValue(':off', $offset, PDO::PARAM_INT);
         $stmt->execute();
@@ -96,22 +88,21 @@ if ($method === 'POST') {
     $body  = json_body();
     $title = trim($body['title'] ?? '');
     $desc  = trim($body['description'] ?? '');
-    $loc   = trim($body['location']    ?? '');
+    $zone  = trim($body['zone'] ?? $body['location'] ?? '');
     $isSOS = !empty($body['is_sos']) ? 1 : 0;
 
     if (mb_strlen($title) < 3)
         json_response(['ok' => false, 'error' => 'Ilarawan ang insidente.'], 422);
 
     $stmt = $db->prepare(
-        "INSERT INTO reports (user_id, title, description, location, barangay_id, is_sos)
-         VALUES (?, ?, ?, ?, ?, ?)"
+        "INSERT INTO reports (user_id, title, description, zone, is_sos)
+         VALUES (?, ?, ?, ?, ?)"
     );
     $stmt->execute([
         $user['id'],
         $title,
-        $desc ?: null,
-        $loc  ?: null,
-        $user['barangay_id'],
+        $desc  ?: null,
+        $zone  ?: null,
         $isSOS,
     ]);
 

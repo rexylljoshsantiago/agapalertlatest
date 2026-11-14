@@ -28,7 +28,7 @@ $db = db();
 // ── Find user ─────────────────────────────────────────────────────────────────
 // Match against stored phone numbers (try both formats: 09XX and 639XX)
 $stmt = $db->prepare(
-    "SELECT id, full_name, phone_number FROM users
+    "SELECT id, CONCAT(fname, ' ', lname) AS full_name, phone_number FROM users
      WHERE REGEXP_REPLACE(phone_number, '[^0-9]', '') IN (?, ?)
      AND status = 'active'
      LIMIT 1"

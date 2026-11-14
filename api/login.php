@@ -48,13 +48,11 @@ if ($attempts >= $maxTries) {
 
 // ── Fetch user ────────────────────────────────────────────────────────────────
 $stmt = $db->prepare(
-    'SELECT u.id, u.full_name, u.email, u.phone_number, u.role, u.status,
-            u.password_hash, u.barangay_id,
-            b.name AS barangay_name, b.city AS barangay_city,
-            u.avatar_path
-     FROM   users u
-     LEFT   JOIN barangays b ON b.id = u.barangay_id
-     WHERE  u.email = ?
+    'SELECT id, fname, mname, lname,
+            CONCAT(fname, IF(mname IS NOT NULL AND mname != "", CONCAT(" ", mname, " "), " "), lname) AS full_name,
+            email, phone_number, password_hash, role, status, avatar_path, invite_code, created_at
+     FROM   users
+     WHERE  email = ?
      LIMIT  1'
 );
 $stmt->execute([$email]);

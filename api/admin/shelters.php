@@ -12,12 +12,9 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 if ($method === 'GET') {
     $rows = $db->query(
-        "SELECT s.id, s.name, s.capacity, s.occupancy, s.contact, s.is_open,
-                b.name AS barangay_name
-         FROM   shelters s
-         LEFT   JOIN barangays b ON b.id = s.barangay_id
-         WHERE  s.barangay_id = 1
-         ORDER  BY s.id ASC"
+        "SELECT id, name, zone, landmark, capacity, occupancy, contact, is_open
+         FROM   shelters
+         ORDER  BY id ASC"
     )->fetchAll();
     json_response(['ok' => true, 'shelters' => $rows]);
 }

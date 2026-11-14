@@ -1,10 +1,9 @@
 <?php
 /**
  * config/setup.php
- *
- * Run this ONCE from the browser: http://localhost/agapalert/config/setup.php
- * It creates the database, all tables, and the default admin account.
- * DELETE this file after running it (or it will be blocked by .htaccess).
+ * Run once from browser: http://localhost/agapalert/config/setup.php
+ * Creates the database, all tables, seeds data, and the default admin account.
+ * DELETE this file after running it.
  */
 
 define('DB_HOST',    'localhost');
@@ -22,37 +21,45 @@ try {
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
     );
 
-    // Create database
     $pdo->exec('CREATE DATABASE IF NOT EXISTS `' . DB_NAME . '`
                 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
     $pdo->exec('USE `' . DB_NAME . '`');
     echo "✓ Database created or already exists.\n";
 
-    // Run schema file
     $sql = file_get_contents(__DIR__ . '/../database.sql');
-
-    // Strip the CREATE DATABASE / USE lines
+    // Strip CREATE DATABASE / USE statements
     $sql = preg_replace('/CREATE DATABASE.*?;/si', '', $sql);
     $sql = preg_replace('/USE\s+\w+\s*;/i', '', $sql);
 
-    // Split and run each statement
-    $statements = array_filter(
-        array_map('trim', explode(';', $sql)),
-        fn($s) => $s !== ''
-    );
+    // Split on DELIMITER blocks so stored procedures are handled correctly
+    $parts      = preg_split('/(DELIMITER\s+\S+)/i', $sql, -1, PREG_SPLIT_DELIM_CAPTURE);
+    $statements = [];
+    $delim      = ';';
+
+    foreach ($parts as $part) {
+        if (preg_match('/^DELIMITER\s+(\S+)$/i', trim($part), $m)) {
+            $delim = $m[1];
+            continue;
+        }
+        foreach (array_filter(array_map('trim', explode($delim, $part))) as $s) {
+            if ($s !== '' && !preg_match('/^--/', ltrim($s))) {
+                $statements[] = $s;
+            }
+        }
+        $delim = ';';
+    }
 
     foreach ($statements as $stmt) {
-        if (str_starts_with(ltrim($stmt), '--')) continue;
+        if (preg_match('/^--/', ltrim($stmt))) continue;
         try {
             $pdo->exec($stmt);
         } catch (PDOException $e) {
-            // Skip "already exists" errors on re-run
-            if ($e->getCode() !== '42S01') throw $e;
+            if (!in_array($e->getCode(), ['42S01', '42S21', '42000'], true)) throw $e;
         }
     }
-    echo "✓ Tables created.\n";
+    echo "✓ Tables and procedures created.\n";
 
-    // Create default admin account
+    // Create / reset default admin account
     $adminEmail    = 'admin@agapalert.ph';
     $adminPassword = 'admin123';
     $adminHash     = password_hash($adminPassword, PASSWORD_BCRYPT, ['cost' => 12]);
@@ -66,9 +73,9 @@ try {
         echo "✓ Admin password reset.\n";
     } else {
         $pdo->prepare(
-            'INSERT INTO users (full_name, email, password_hash, role, status)
-             VALUES (?, ?, ?, "admin", "active")'
-        )->execute(['System Administrator', $adminEmail, $adminHash]);
+            'INSERT INTO users (fname, lname, email, password_hash, role, status)
+             VALUES (?, ?, ?, ?, "admin", "active")'
+        )->execute(['System', 'Administrator', $adminEmail, $adminHash]);
         echo "✓ Admin account created.\n";
     }
 
@@ -76,7 +83,7 @@ try {
     echo "   Email:    " . $adminEmail . "\n";
     echo "   Password: " . $adminPassword . "\n\n";
     echo "⚠️  Change the admin password after logging in.\n";
-    echo "⚠️  Delete this file or block it via .htaccess after setup.\n";
+    echo "⚠️  Delete this file after setup.\n";
 
 } catch (PDOException $e) {
     echo "❌ Error: " . $e->getMessage() . "\n";

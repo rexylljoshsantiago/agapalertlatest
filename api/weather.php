@@ -4,7 +4,7 @@ require_method('GET');
 
 $lat        = filter_input(INPUT_GET, 'lat', FILTER_VALIDATE_FLOAT);
 $lon        = filter_input(INPUT_GET, 'lon', FILTER_VALIDATE_FLOAT);
-$barangayId = isset($_GET['barangay_id']) ? (int) $_GET['barangay_id'] : null;
+$zone = trim($_GET['zone'] ?? 'Dalongue');
 
 if ($lat === false || $lon === false || $lat === null || $lon === null)
     json_response(['ok' => false, 'error' => 'Valid lat and lon are required.'], 400);
@@ -14,13 +14,12 @@ $db = db();
 // ── Cache check ───────────────────────────────────────────────────────────────
 $cache = $db->prepare(
     "SELECT * FROM weather_readings
-     WHERE  ABS(latitude - ?) < 0.01
-       AND  ABS(longitude - ?) < 0.01
+     WHERE  zone = ?
        AND  recorded_at >= DATE_SUB(NOW(), INTERVAL 30 MINUTE)
      ORDER  BY recorded_at DESC
      LIMIT  1"
 );
-$cache->execute([$lat, $lon]);
+$cache->execute([$zone]);
 $cached = $cache->fetch();
 
 if ($cached) {
@@ -49,16 +48,9 @@ $temp      = (float) $current['temperature_2m'];
 $condition = getSkyCondition((int) $current['weather_code']);
 
 // ── Store in DB ───────────────────────────────────────────────────────────────
-$db->prepare(
-    'INSERT INTO weather_readings
-        (barangay_id, latitude, longitude, weather_condition,
-         temperature, rain_mm, wind_speed_kmh, wind_direction_deg)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-)->execute([
-    $barangayId,
-    $lat,
-    $lon,
-    $condition,
+$db->prepare('CALL RecordWeather(?, ?, ?, ?, ?, ?, ?, ?)')
+->execute([
+    $zone, $lat, $lon, $condition,
     $temp,
     (float) $current['rain'],
     (float) $current['wind_speed_10m'],
